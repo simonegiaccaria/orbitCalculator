@@ -21,12 +21,20 @@ void printOrbitData(orbit *orbitData, int orbitIndex);
 
 double orbitChanger(orbit *orbitData, int oldOrbitIndex, int newOrbitIndex);
 
+double **satellite(int satellitePieces);
+
+double **payloads(int payloadsNumber);
+
+double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, double **payloadsCoordsMass, int payloadsNumber);
+
 int flag; //Variabile sentinella globale utilizzato nella stampa delle informazioni relative al cambio di orbita
 
 int main() {
     orbit *orbitData = NULL;
-    int orbitIndex = 0;
+    int orbitIndex = 0, satellitePieces, payloadsNumber;
     double speedDifference;
+    double **satelliteCoordsMass, **payloadsCoordsMass;
+    double *cog;
     printf("\norbitCalculator\nVersion 1.0\nSimone Giaccaria - MAAT04\n");
 
     printf("\nInserisci le condizioni iniziali dell'orbita:");
@@ -57,6 +65,17 @@ int main() {
         printf("\n\nSi vuole cambiare orbita? 1 - Si\n0 - No\n");
         scanf("%d", &flag);
     }
+
+    printf("\nInserire i dati del satellite:");
+    printf("\nInserire il numero di pezzi del satellite:");
+    scanf("%d", &satellitePieces);
+    satelliteCoordsMass = satellite(satellitePieces);
+    printf("\nInserire i dati dei payload:");
+    printf("\nInserire il numero di payload:");
+    scanf("%d", &payloadsNumber);
+    payloadsCoordsMass = payloads(payloadsNumber);
+    cog = computeSatelliteCog(satelliteCoordsMass, satellitePieces, payloadsCoordsMass, payloadsNumber);
+    printf("\nIl centro di massa del satellite si trova in (%lf cm, %lf cm, %lf cm)", cog[0], cog[1], cog[2]);
     free(orbitData);
     return 0;
 }
@@ -171,4 +190,78 @@ double orbitChanger(orbit *orbitData, int oldOrbitIndex, int newOrbitIndex){
         speedDifference = orbitData[newOrbitIndex].apogeeSpeed - orbitData[oldOrbitIndex].apogeeSpeed;
     }
     return speedDifference;
+}
+
+//Funzione per il calcolo del cog del satellite
+
+double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, double **payloadsCoordsMass, int payloadsNumber){
+    double x = 0, y = 0, z = 0, satelliteTotalMass = 0;
+    double *cog;
+    cog = malloc(3 * sizeof(double));
+
+    for(int i = 0; i < payloadsNumber; i++){
+        x += payloadsCoordsMass[i][0] * payloadsCoordsMass[i][3];
+        y += payloadsCoordsMass[i][1] * payloadsCoordsMass[i][3];
+        z += payloadsCoordsMass[i][2] * payloadsCoordsMass[i][3];
+        satelliteTotalMass += payloadsCoordsMass[i][3];
+    }
+    for(int i = 0; i < satellitePieces; i++){
+        x += satelliteCoordsMass[i][0] * satelliteCoordsMass[i][3];
+        y += satelliteCoordsMass[i][1] * satelliteCoordsMass[i][3];
+        z += satelliteCoordsMass[i][2] * satelliteCoordsMass[i][3];
+        satelliteTotalMass += satelliteCoordsMass[i][3];
+    }
+    x /= satelliteTotalMass;
+    y /= satelliteTotalMass;
+    z /= satelliteTotalMass;
+    cog[0] = x;
+    cog[1] = y;
+    cog[2] = z;
+    return cog;
+}
+
+//Funzione per l'inserimento delle coordinate e della massa dei pezzi del satellite
+
+double **satellite(int satellitePieces){
+    double **satelliteCoordsMass;
+    satelliteCoordsMass = malloc(satellitePieces * sizeof(double *));
+    if(satelliteCoordsMass == NULL){
+        printf("Errore di allocazione memoria\n");
+        exit(1);
+    }
+    for(int i = 0; i < satellitePieces; i++){
+        satelliteCoordsMass[i] = malloc(4 * sizeof(double));
+        if(satelliteCoordsMass[i] == NULL){
+            printf("Errore di allocazione memoria\n");
+            exit(1);
+        }
+    }
+    printf("\nInserire le coordinate e la massa dei pezzi del satellite(x[cm] y[cm] z[cm] m[g]):\n");
+    for(int i = 0; i < satellitePieces; i++){
+        scanf("%lf %lf %lf %lf", &satelliteCoordsMass[i][0], &satelliteCoordsMass[i][1], &satelliteCoordsMass[i][2], &satelliteCoordsMass[i][3]);
+    }
+    return satelliteCoordsMass;
+}
+
+//Funzione per l'inserimento delle coordinate e della massa dei payload
+
+double **payloads(int payloadsNumber){
+    double **payloadsCoordsMass;
+    payloadsCoordsMass = malloc(payloadsNumber * sizeof(double *));
+    if(payloadsCoordsMass == NULL){
+        printf("Errore di allocazione memoria\n");
+        exit(1);
+    }
+    for(int i = 0; i < payloadsNumber; i++){
+        payloadsCoordsMass[i] = malloc(4 * sizeof(double));
+        if(payloadsCoordsMass[i] == NULL){
+            printf("Errore di allocazione memoria\n");
+            exit(1);
+        }
+    }
+    printf("\nInserire le coordinate e la massa dei payload(x[cm] y[cm] z[cm] m[g]):\n");
+    for(int i = 0; i < payloadsNumber; i++){
+        scanf("%lf %lf %lf %lf", &payloadsCoordsMass[i][0], &payloadsCoordsMass[i][1], &payloadsCoordsMass[i][2], &payloadsCoordsMass[i][3]);
+    }
+    return payloadsCoordsMass;
 }
