@@ -1,0 +1,9 @@
+PUC,0.35,End,R236FA/SO2,Warm Gas,1,5.4,595,0
+CPOD,1,Center,R134a/R236FA,Cold Gas,8,25,186,0
+MarCO,2,End,R236FA,Cold Gas,8,50,755,0
+Green Mono Prop System,0.75,End,ADN/AF-M315E,Mono-Prop,4,400,1808,0
+End Mounted Standard,0.625,End,R134a/R236FA,Cold Gas,5,10,312,0
+Hybrid Green Mono Prop,0.75,End,ADN/AF-M315E,Mono-Prop,1 Hot 4 Cold,100,783,0
+Standard,0.65,End,R134a/R236FA,Cold Gas,5,10,250,0
+MEPSI,0.25,End,Isobutane,Cold Gas,5,53,23,0
+Palomar,1,Center,Isobutane,Cold Gas,8,35,85,0

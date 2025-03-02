@@ -11,7 +11,27 @@
 #define GRAVITATIONAL_CONSTANT (6.6743*(powf(10,-11))) //m^3 kg^-1 s^2
 #define M_PI 3.14159265358979323846
 
-typedef struct orbits orbit;
+typedef struct orbits{
+    char orbitType[10];
+    double apogeeRadius;
+    double perigeeRadius;
+    double apogeeSpeed;
+    double perigeeSpeed;
+    double majorSemiaxis;
+    double period;
+} orbit;
+
+typedef struct thrusters{
+    char thrusterName[100];
+    double size;
+    char mount[100];
+    char propellant[100];
+    char thrusterType[100];
+    char thrustersNumber[100];
+    double thrust;
+    double impulse;
+    double mass;
+} thruster;
 
 orbit *newOrbit(orbit *orbitData);
 
@@ -27,14 +47,23 @@ double **payloads(int payloadsNumber);
 
 double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, double **payloadsCoordsMass, int payloadsNumber);
 
+double *normalizeVector(double *vector);
+
+void printThrustersData(thruster *thrusterData, int nThrusters);
+
+thruster *allocateThrusters(thruster *thrusterData, int nThrusters, FILE *fp);
+
 int flag; //Variabile sentinella globale utilizzato nella stampa delle informazioni relative al cambio di orbita
 
 int main() {
+    FILE *fp;
     orbit *orbitData = NULL;
+    thruster *thrusterData = NULL;
     int orbitIndex = 0, satellitePieces, payloadsNumber;
-    double speedDifference;
-    double **satelliteCoordsMass, **payloadsCoordsMass;
+    double speedDifference, totalSpeedDifference = 0;
+    double **satelliteCoordsMass, **payloadsCoordsMass, thrusters;
     double *cog;
+
     printf("\norbitCalculator\nVersion 1.0\nSimone Giaccaria - MAAT04\n");
 
     printf("\nInserisci le condizioni iniziali dell'orbita:");
@@ -49,6 +78,7 @@ int main() {
         orbitData = newOrbit(orbitData);
         printOrbitData(orbitData, orbitIndex + 1);
         speedDifference = orbitChanger(orbitData, orbitIndex, orbitIndex + 1);
+        totalSpeedDifference += speedDifference;
         orbitIndex++;
         if (flag == 0){
             if(speedDifference < 0)
@@ -74,23 +104,38 @@ int main() {
     printf("\nInserire il numero di payload:");
     scanf("%d", &payloadsNumber);
     payloadsCoordsMass = payloads(payloadsNumber);
+
+    fp = fopen("thrusters.csv", "r");
+    if (fp == NULL) {
+        printf("Errore nell'apertura del file\n");
+        exit(1);
+    }
+    int nThrusters = 0;
+    for(int c = getc(fp); c != EOF; c = getc(fp)){
+        if(c == '\n')
+            nThrusters++;
+    }
+    rewind(fp);
+    thrusterData = allocateThrusters(thrusterData, nThrusters, fp);
+    fclose(fp);
     cog = computeSatelliteCog(satelliteCoordsMass, satellitePieces, payloadsCoordsMass, payloadsNumber);
-    printf("\nIl centro di massa del satellite si trova in (%lf cm, %lf cm, %lf cm)", cog[0], cog[1], cog[2]);
-    free(orbitData);
-    return 0;
+    int j;
+    if (speedDifference != 0) {
+        printThrustersData(thrusterData, nThrusters);
+        for(int i = 0; i < nThrusters; i++){
+            if (i == 0)
+                j = i;
+            else{
+                if(abs(thrusterData[i].impulse - (((cog[3]+thrusterData[i].mass)/1000) * totalSpeedDifference)) < abs(thrusterData[j].impulse - (((cog[3]+thrusterData[j].mass)/1000) * totalSpeedDifference))){
+                    j = i;
+                }
+            }   
+        }
+        printf("\nIl satellite necessita di un sistema di propulsione. E' consiglibile l'utilizzo del %s", thrusterData[j].thrusterName);
+    }
+    cog[3] += thrusterData[j].mass;
+    printf("\nIl centro di gravita' del satellite si trova in (%lf cm, %lf cm, %lf cm) e ha una massa di %lf kg", cog[0], cog[1], cog[2], cog[3]/1000);
 }
-
-//Inizializzazione della struttura dati per la memorizzazione dell'orbita
-
-typedef struct orbits{
-    char orbitType[10];
-    double apogeeRadius;
-    double perigeeRadius;
-    double apogeeSpeed;
-    double perigeeSpeed;
-    double majorSemiaxis;
-    double period;
-} orbit;
 
 //Funzione che calcola la velocità dell'orbita dato il raggio e il semiasse maggiore dell'orbita
 
@@ -127,7 +172,7 @@ orbit *newOrbit(orbit *orbitData) {
         }
     }
     //Riallocamento dinamico della memoria per il set di orbite aggiornato
-    orbitData = realloc(orbitData, (dim + 21) * sizeof(orbit));
+    orbitData = realloc(orbitData, (dim + 2) * sizeof(orbit));
     if (orbitData == NULL) {
         printf("Errore di allocazione memoria\n");
         exit(1);
@@ -197,7 +242,7 @@ double orbitChanger(orbit *orbitData, int oldOrbitIndex, int newOrbitIndex){
 double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, double **payloadsCoordsMass, int payloadsNumber){
     double x = 0, y = 0, z = 0, satelliteTotalMass = 0;
     double *cog;
-    cog = malloc(3 * sizeof(double));
+    cog = malloc(4 * sizeof(double));
 
     for(int i = 0; i < payloadsNumber; i++){
         x += payloadsCoordsMass[i][0] * payloadsCoordsMass[i][3];
@@ -217,6 +262,7 @@ double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, d
     cog[0] = x;
     cog[1] = y;
     cog[2] = z;
+    cog[3] = satelliteTotalMass;
     return cog;
 }
 
@@ -264,4 +310,62 @@ double **payloads(int payloadsNumber){
         scanf("%lf %lf %lf %lf", &payloadsCoordsMass[i][0], &payloadsCoordsMass[i][1], &payloadsCoordsMass[i][2], &payloadsCoordsMass[i][3]);
     }
     return payloadsCoordsMass;
+}
+
+//Funzione per la normalizzazione di un vettore
+
+double *normalizeVector(double *vector){
+    double norm = sqrt(pow(vector[0], 2) + pow(vector[1], 2) + pow(vector[2], 2));
+    vector[0] /= norm;
+    vector[1] /= norm;
+    vector[2] /= norm;
+    return vector;
+}
+
+thruster *allocateThrusters(thruster *thrusterData, int nThrusters, FILE *fp){
+    thrusterData = malloc((nThrusters + 1) * sizeof(thruster));
+    char row[100];
+    char *token;
+    int i = 0;
+    while (!feof(fp) && 0 < nThrusters)
+    {
+        fgets(row, 100, fp);
+
+        token = strtok(row, ",");
+        strcpy(thrusterData[i].thrusterName, token);
+
+        token = strtok(NULL, ",");
+        thrusterData[i].size = atof(token);
+
+        token = strtok(NULL, ",");
+        strcpy(thrusterData[i].mount, token);
+
+        token = strtok(NULL, ",");
+        strcpy(thrusterData[i].propellant, token);
+
+        token = strtok(NULL, ",");
+        strcpy(thrusterData[i].thrusterType, token);
+
+        token = strtok(NULL, ",");
+        strcpy(thrusterData[i].thrustersNumber, token);
+
+        token = strtok(NULL, ",");
+        thrusterData[i].thrust = atof(token) *1000;
+
+        token = strtok(NULL, ",");
+        thrusterData[i].impulse = atof(token);
+
+        token = strtok(NULL, ",");
+        thrusterData[i].mass = atof(token);
+
+        i++;
+    }
+    return thrusterData;
+}
+
+void printThrustersData(thruster *thrusterData, int nThrusters){
+    printf("\nNome del propulsore | Dimensione | Posizione di montaggio | Propellente | Tipo di propulsore | Numero di propulsori | Spinta | Impulso specifico | Massa\n");
+    for(int i = 0; i < nThrusters; i++){
+        printf("%s | %lf | %s | %s | %s | %s | %lf | %lf | %lf\n", thrusterData[i].thrusterName, thrusterData[i].size, thrusterData[i].mount, thrusterData[i].propellant, thrusterData[i].thrusterType, thrusterData[i].thrustersNumber, thrusterData[i].thrust, thrusterData[i].impulse, thrusterData[i].mass);
+    }
 }
