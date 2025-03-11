@@ -51,7 +51,11 @@ double *normalizeVector(double *vector);
 
 void printThrustersData(thruster *thrusterData, int nThrusters);
 
+orbit *HohmannManouver(orbit *orbitData, double apogeeRadius, double perigeeRadius);
+
 thruster *allocateThrusters(thruster *thrusterData, int nThrusters, FILE *fp);
+
+orbit *orbitPop(orbit *orbitData, int removeIndex);
 
 int flag; //Variabile sentinella globale utilizzato nella stampa delle informazioni relative al cambio di orbita
 
@@ -71,32 +75,33 @@ int main() {
     printOrbitData(orbitData, orbitIndex);
 
     printf("\n\nSi vuole cambiare orbita? 1 - Si\n0 - No\n");
-    scanf("%d", &flag);
 
-    while (flag == 1){
+    if(scanf("%d") == 1){
         printf("\n\nInserire i dati della nuova orbita:");
         orbitData = newOrbit(orbitData);
+        
         printOrbitData(orbitData, orbitIndex + 1);
-        speedDifference = orbitChanger(orbitData, orbitIndex, orbitIndex + 1);
-        totalSpeedDifference += speedDifference;
-        orbitIndex++;
-        if (flag == 0){
-            if(speedDifference < 0)
-                printf("\nIl satellite deve ridurre la velocita' di %lf m/s all'apogeo", sqrt(pow(speedDifference,2)));
-            else
-                printf("\nIl satellite deve aumentare la velocita' di %lf m/s all'apogeo", speedDifference);
-        }
-        else{
-            if(speedDifference < 0)
-                printf("\nIl satellite deve ridurre la velocita' di %lf m/s al perigeo", sqrt(pow(speedDifference,2)));
-            else
-                printf("\nIl satellite deve aumentare la velocita' di %lf m/s al perigeo", speedDifference);
-        }
-        printf("\n\nSi vuole cambiare orbita? 1 - Si\n0 - No\n");
-        scanf("%d", &flag);
+        
+        
+        if(orbitData[orbitIndex].orbitType[0] == orbitData[orbitIndex+1].orbitType[0]){
+        	if(orbitData[orbitIndex+1].apogeeRadius / orbitData[orbitIndex].apogeeRadius <= 11.94){
+        		//Hohmann manouver
+        		HohmannManouver(orbitData, orbitData[orbitIndex+1].apogeeRadius, orbitData[orbitIndex].perigeeRadius);
+        		speedDifference = orbitChanger(orbitData, orbitIndex, orbitIndex + 2);
+        		totalSpeedDifference += speedDifference;
+        		speedDifference = orbitChanger(orbitData, orbitIndex+2, orbitIndex + 1);
+        		totalSpeedDifference += speedDifference;
+        		orbitPop(orbitIndex+1);
+
+        		printf("\n\nEseguendo una manovra di Hohman, il satellite deve aumentare la sua velocita' di %lf per passare\nall'orbita ellittica di Hohmann e aumentare la velocita' di %lf all'apogeo per passare all'orbita finale", totalSpeedDifference - speedDifference, speedDifference);
+			}
+		}
+		else{
+			//Manovra biellittica
+		}
     }
 
-    printf("\nInserire i dati del satellite:");
+    printf("\n\nInserire i dati del satellite:");
     printf("\nInserire il numero di pezzi del satellite:");
     scanf("%d", &satellitePieces);
     satelliteCoordsMass = satellite(satellitePieces);
@@ -137,12 +142,55 @@ int main() {
     printf("\nIl centro di gravita' del satellite si trova in (%lf cm, %lf cm, %lf cm) e ha una massa di %lf kg", cog[0], cog[1], cog[2], cog[3]/1000);
 }
 
+//Funzione che rimuove un'orbita indesiderata
+
+orbit *orbitPop(orbit *orbitData, int removeIndex){
+	int dim = 0;
+	if (orbitData != NULL) {
+        while (orbitData[dim].orbitType[0] != '\0') {
+            dim++;
+        }
+    }
+	for (i = removeIndex; i < dim - 1; i++) {
+        orbitData[i] = orbitData[i + 1];
+    }
+    memset(&orbitData[dim - 1], 0, sizeof(struct orbitData));
+    return orbitData;
+}
+
 //Funzione che calcola la velocità dell'orbita dato il raggio e il semiasse maggiore dell'orbita
 
 double computeOrbitSpeed(double radius, double majorSemiaxis){
     double speed;
     speed = sqrt(GRAVITATIONAL_CONSTANT * EARTH_MASS * (2 / radius - 1 / majorSemiaxis)); //m s^-1
     return speed;
+}
+
+//Funzione per la creazione di una manovra di Hohmann
+
+orbit *HohmannManouver(orbit *orbitData, double apogeeRadius, double perigeeRadius){
+	int dim = 0;
+	//Ciclo per il conteggio di orbite presenti nella struttura dati
+    if (orbitData != NULL) {
+        while (orbitData[dim].orbitType[0] != '\0') {
+            dim++;
+        }
+    }
+    //Riallocamento dinamico della memoria per il set di orbite aggiornato
+    orbitData = realloc(orbitData, (dim + 2) * sizeof(orbit));
+    if (orbitData == NULL) {
+        printf("Errore di allocazione memoria\n");
+        exit(1);
+    }
+    strcpy(orbitData[dim].orbitType, "Ellittica");
+    orbitData[dim].apogeeRadius = apogeeRadius;
+    orbitData[dim].perigeeRadius =perigeeRadius;
+    orbitData[dim].majorSemiaxis = (orbitData[dim].apogeeRadius + orbitData[dim].perigeeRadius) / 2;
+    orbitData[dim].apogeeSpeed = computeOrbitSpeed(orbitData[dim].apogeeRadius, orbitData[dim].majorSemiaxis);
+    orbitData[dim].perigeeSpeed = computeOrbitSpeed(orbitData[dim].perigeeRadius, orbitData[dim].majorSemiaxis);
+    //Creazione del valore sentinella per il conteggio di orbite presenti
+    orbitData[dim + 1].orbitType[0] = '\0';
+    return orbitData;
 }
 
 //Funzione per la memorizzazione di una nuova orbita
