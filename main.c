@@ -33,107 +33,7 @@ typedef struct thrusters{
     double mass;
 } thruster;
 
-orbit *newOrbit(orbit *orbitData);
-
-double computeOrbitSpeed(double radius, double majorSemiaxis);
-
-void printOrbitData(orbit *orbitData, int orbitIndex);
-
-double orbitChanger(orbit *orbitData, int oldOrbitIndex, int newOrbitIndex);
-
-double **satellite(int satellitePieces);
-
-double **payloads(int payloadsNumber);
-
-double *computeSatelliteCog(double **satelliteCoordsMass, int satellitePieces, double **payloadsCoordsMass, int payloadsNumber);
-
-double *normalizeVector(double *vector);
-
-void printThrustersData(thruster *thrusterData, int nThrusters);
-
-thruster *allocateThrusters(thruster *thrusterData, int nThrusters, FILE *fp);
-
-orbit *orbitPop(orbit *orbitData, int removeIndex);
-
-orbit *hohmannManouver(orbit *orbitData, int orbitIndex);
-
 int flag; //Variabile sentinella globale utilizzato nella stampa delle informazioni relative al cambio di orbita
-
-int main() {
-    FILE *fp;
-    orbit *orbitData = NULL;
-    thruster *thrusterData = NULL;
-    int orbitIndex = 0, satellitePieces, payloadsNumber, ans;
-    double speedDifference, totalSpeedDifference = 0;
-    double **satelliteCoordsMass, **payloadsCoordsMass, thrusters;
-    double *cog;
-
-    printf("\norbitCalculator\nVersion 1.0\nSimone Giaccaria - MAAT04\n");
-
-    printf("\nInserisci le condizioni iniziali dell'orbita:");
-    orbitData = newOrbit(orbitData);
-    printOrbitData(orbitData, orbitIndex);
-
-    printf("\n\nSi vuole cambiare orbita? 1 - Si\n0 - No\n");
-    scanf("%d", &ans);
-    if(ans == 1){
-        printf("\n\nInserire i dati della nuova orbita:");
-        orbitData = newOrbit(orbitData);
-        
-        printOrbitData(orbitData, orbitIndex + 1);
-        
-        if (strncmp(orbitData[orbitIndex].orbitType, "Circolare", strlen("Circolare")) == 0 && strncmp(orbitData[orbitIndex + 1].orbitType, "Circolare", strlen("Circolare")) == 0) {
-            if(orbitData[orbitIndex+1].apogeeRadius / orbitData[orbitIndex].apogeeRadius <= 11.94) {
-                hohmannManouver(orbitData, orbitIndex);
-                speedDifference = orbitChanger(orbitData, orbitIndex, orbitIndex + 2);
-                totalSpeedDifference += speedDifference;
-                speedDifference = orbitChanger(orbitData, orbitIndex + 2, orbitIndex + 1);
-                totalSpeedDifference += speedDifference;
-                printf("\n\nPer il cambio di orbita, conviene la manovra di Hohmann, con un incremento di velocità al perigeo di %lf m/s e all'apogeo di %lf m/s", totalSpeedDifference - speedDifference, speedDifference);
-            }
-        }
-    }
-
-    printf("\n\nInserire i dati del satellite:");
-    printf("\nInserire il numero di pezzi del satellite:");
-    scanf("%d", &satellitePieces);
-    satelliteCoordsMass = satellite(satellitePieces);
-    printf("\nInserire i dati dei payload:");
-    printf("\nInserire il numero di payload:");
-    scanf("%d", &payloadsNumber);
-    payloadsCoordsMass = payloads(payloadsNumber);
-
-    fp = fopen("thrusters.csv", "r");
-    if (fp == NULL) {
-        printf("Errore nell'apertura del file\n");
-        exit(1);
-    }
-    int nThrusters = 0;
-    for(int c = getc(fp); c != EOF; c = getc(fp)){
-        if(c == '\n')
-            nThrusters++;
-    }
-    rewind(fp);
-    thrusterData = allocateThrusters(thrusterData, nThrusters, fp);
-    fclose(fp);
-    cog = computeSatelliteCog(satelliteCoordsMass, satellitePieces, payloadsCoordsMass, payloadsNumber);
-    int j;
-    if (speedDifference != 0) {
-        printThrustersData(thrusterData, nThrusters);
-        for(int i = 0; i < nThrusters; i++){
-            if (i == 0)
-                j = i;
-            else{
-                if(abs(thrusterData[i].impulse - (((cog[3]+thrusterData[i].mass)/1000) * totalSpeedDifference)) < abs(thrusterData[j].impulse - (((cog[3]+thrusterData[j].mass)/1000) * totalSpeedDifference))){
-                    j = i;
-                }
-            }   
-        }
-        printf("\nIl satellite necessita di un sistema di propulsione. E' consiglibile l'utilizzo del %s", thrusterData[j].thrusterName);
-    }
-    cog[3] += thrusterData[j].mass;
-    printf("\nIl centro di gravita' del satellite si trova in (%lf cm, %lf cm, %lf cm) e ha una massa di %lf kg", cog[0], cog[1], cog[2], cog[3]/1000);
-}
 
 //Funzione che rimuove un'orbita indesiderata
 
@@ -408,4 +308,80 @@ void printThrustersData(thruster *thrusterData, int nThrusters){
     for(int i = 0; i < nThrusters; i++){
         printf("%s | %lf | %s | %s | %s | %s | %lf | %lf | %lf\n", thrusterData[i].thrusterName, thrusterData[i].size, thrusterData[i].mount, thrusterData[i].propellant, thrusterData[i].thrusterType, thrusterData[i].thrustersNumber, thrusterData[i].thrust, thrusterData[i].impulse, thrusterData[i].mass);
     }
+}
+
+int main() {
+    FILE *fp;
+    orbit *orbitData = NULL;
+    thruster *thrusterData = NULL;
+    int orbitIndex = 0, satellitePieces, payloadsNumber, ans;
+    double speedDifference, totalSpeedDifference = 0;
+    double **satelliteCoordsMass, **payloadsCoordsMass, thrusters;
+    double *cog;
+
+    printf("\norbitCalculator\nVersion 1.0\nSimone Giaccaria - MAAT04\n");
+
+    printf("\nInserisci le condizioni iniziali dell'orbita:");
+    orbitData = newOrbit(orbitData);
+    printOrbitData(orbitData, orbitIndex);
+
+    printf("\n\nSi vuole cambiare orbita? 1 - Si\n0 - No\n");
+    scanf("%d", &ans);
+    if(ans == 1){
+        printf("\n\nInserire i dati della nuova orbita:");
+        orbitData = newOrbit(orbitData);
+        
+        printOrbitData(orbitData, orbitIndex + 1);
+        
+        if (strncmp(orbitData[orbitIndex].orbitType, "Circolare", strlen("Circolare")) == 0 && strncmp(orbitData[orbitIndex + 1].orbitType, "Circolare", strlen("Circolare")) == 0) {
+            if(orbitData[orbitIndex+1].apogeeRadius / orbitData[orbitIndex].apogeeRadius <= 11.94) {
+                hohmannManouver(orbitData, orbitIndex);
+                speedDifference = orbitChanger(orbitData, orbitIndex, orbitIndex + 2);
+                totalSpeedDifference += speedDifference;
+                speedDifference = orbitChanger(orbitData, orbitIndex + 2, orbitIndex + 1);
+                totalSpeedDifference += speedDifference;
+                printf("\n\nPer il cambio di orbita, conviene la manovra di Hohmann, con un incremento di velocità al perigeo di %lf m/s e all'apogeo di %lf m/s", totalSpeedDifference - speedDifference, speedDifference);
+            }
+        }
+    }
+
+    printf("\n\nInserire i dati del satellite:");
+    printf("\nInserire il numero di pezzi del satellite:");
+    scanf("%d", &satellitePieces);
+    satelliteCoordsMass = satellite(satellitePieces);
+    printf("\nInserire i dati dei payload:");
+    printf("\nInserire il numero di payload:");
+    scanf("%d", &payloadsNumber);
+    payloadsCoordsMass = payloads(payloadsNumber);
+
+    fp = fopen("thrusters.csv", "r");
+    if (fp == NULL) {
+        printf("Errore nell'apertura del file\n");
+        exit(1);
+    }
+    int nThrusters = 0;
+    for(int c = getc(fp); c != EOF; c = getc(fp)){
+        if(c == '\n')
+            nThrusters++;
+    }
+    rewind(fp);
+    thrusterData = allocateThrusters(thrusterData, nThrusters, fp);
+    fclose(fp);
+    cog = computeSatelliteCog(satelliteCoordsMass, satellitePieces, payloadsCoordsMass, payloadsNumber);
+    int j;
+    if (speedDifference != 0) {
+        printThrustersData(thrusterData, nThrusters);
+        for(int i = 0; i < nThrusters; i++){
+            if (i == 0)
+                j = i;
+            else{
+                if(abs(thrusterData[i].impulse - (((cog[3]+thrusterData[i].mass)/1000) * totalSpeedDifference)) < abs(thrusterData[j].impulse - (((cog[3]+thrusterData[j].mass)/1000) * totalSpeedDifference))){
+                    j = i;
+                }
+            }   
+        }
+        printf("\nIl satellite necessita di un sistema di propulsione. E' consiglibile l'utilizzo del %s", thrusterData[j].thrusterName);
+    }
+    cog[3] += thrusterData[j].mass;
+    printf("\nIl centro di gravita' del satellite si trova in (%lf cm, %lf cm, %lf cm) e ha una massa di %lf kg", cog[0], cog[1], cog[2], cog[3]/1000);
 }
